@@ -8,20 +8,6 @@ steps:
   - name: gcr.io/google.com/cloudsdktool/google-cloud-cli:stable
     entrypoint: gcloud
     args:
-      - services
-      - enable
-      - cloudfunctions.googleapis.com
-      - eventarc.googleapis.com
-      - run.googleapis.com
-      - artifactregistry.googleapis.com
-      - pubsub.googleapis.com
-      - storage.googleapis.com
-      - cloudbuild.googleapis.com
-      - --project=${PROJECT_ID}
-
-  - name: gcr.io/google.com/cloudsdktool/google-cloud-cli:stable
-    entrypoint: gcloud
-    args:
       - functions
       - deploy
       - ${_FUNCTION_NAME}
