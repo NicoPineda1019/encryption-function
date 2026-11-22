@@ -9,6 +9,17 @@ steps:
     entrypoint: gcloud
     args:
       - functions
+      - describe
+      - ${_FUNCTION_NAME}
+      - --gen2
+      - --project=${PROJECT_ID}
+      - --region=${_REGION}
+      - --format=value(name)
+
+  - name: gcr.io/google.com/cloudsdktool/google-cloud-cli:stable
+    entrypoint: gcloud
+    args:
+      - functions
       - deploy
       - ${_FUNCTION_NAME}
       - --gen2
