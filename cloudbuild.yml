@@ -20,5 +20,4 @@ steps:
       - --trigger-location=${_TRIGGER_LOCATION}
       - --trigger-event-filters=type=google.cloud.storage.object.v1.finalized
       - --trigger-event-filters=bucket=${_BUCKET}
-      - --min=1
       - --quiet
