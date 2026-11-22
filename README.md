@@ -6,7 +6,12 @@ Función para cifrado de archivos
 `codebuild.yml` despliega la Cloud Function `gcp-encryption-cloud-function`
 como función Gen 2 activada por Eventarc cuando se finaliza la creación de un
 objeto en Cloud Storage (`google.cloud.storage.object.v1.finalized`). Configura
-una instancia mínima para reducir los arranques en frío.
+una instancia mínima para reducir los arranques en frío y despliega
+`handle_storage_event` como entry point de la función.
+
+El proyecto también expone `app` como aplicación WSGI para ejecución directa
+con Gunicorn/Cloud Run. Si se usa ese modo, Eventarc puede enviar el CloudEvent
+al endpoint `/` o `/events`; `/healthz` responde para comprobaciones de salud.
 
 Antes de desplegar, reemplaza `REPLACE_WITH_BUCKET_NAME` por el nombre del
 bucket y ajusta `_TRIGGER_LOCATION` a la ubicación del bucket. La ubicación

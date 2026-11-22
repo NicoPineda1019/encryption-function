@@ -16,7 +16,7 @@ steps:
       - --region=${_REGION}
       - --runtime=python312
       - --source=.
-      - --entry-point=app
+      - --entry-point=handle_storage_event
       - --trigger-location=${_TRIGGER_LOCATION}
       - --trigger-event-filters=type=google.cloud.storage.object.v1.finalized
       - --trigger-event-filters=bucket=${_BUCKET}
