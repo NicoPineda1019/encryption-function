@@ -1,5 +1,5 @@
 substitutions:
-  _FUNCTION_NAME: gcp-encryption-cloud-function-v2
+  _FUNCTION_NAME: gcp-encryption-cloud-function
   _REGION: us-east1
   _BUCKET: data-transfer-2026
   _TRIGGER_LOCATION: us-east1
@@ -28,7 +28,7 @@ steps:
       - --runtime=python315
       - --source=.
       - --entry-point=handle_storage_event
-      - --trigger-location=${_TRIGGER_LOCATION}
-      - --trigger-event-filters=type=google.cloud.storage.object.v1.finalized
-      - --trigger-event-filters=bucket=${_BUCKET}
+      # - --trigger-location=${_TRIGGER_LOCATION}
+      # - --trigger-event-filters=type=google.cloud.storage.object.v1.finalized
+      # - --trigger-event-filters=bucket=${_BUCKET}
       - --quiet
