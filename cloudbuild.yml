@@ -1,5 +1,5 @@
 substitutions:
-  _FUNCTION_NAME: gcp-encryption-cloud-function
+  _FUNCTION_NAME: gcp-encryption-cloud-function-v2
   _REGION: us-east1
   _BUCKET: data-transfer-2026
   _TRIGGER_LOCATION: us-east1
