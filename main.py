@@ -9,7 +9,7 @@ logger.setLevel(logging.INFO)
 
 def process_storage_event(event_type, data, event_id=None):
     if not isinstance(data, dict):
-        raise ValueError("El evento de Cloud Storage no contiene datos válidos.")
+        raise ValueError("El evento de Cloud Storage no contiene datos válidos")
 
     bucket = data.get("bucket")
     object_name = data.get("name")
