@@ -5,16 +5,16 @@ substitutions:
   _TRIGGER_LOCATION: us-east1
 
 steps:
-  - name: gcr.io/google.com/cloudsdktool/google-cloud-cli:stable
-    entrypoint: gcloud
-    args:
-      - functions
-      - describe
-      - ${_FUNCTION_NAME}
-      - --gen2
-      - --project=${PROJECT_ID}
-      - --region=${_REGION}
-      - --format=value(name)
+  # - name: gcr.io/google.com/cloudsdktool/google-cloud-cli:stable
+  #   entrypoint: gcloud
+  #   args:
+  #     - functions
+  #     - describe
+  #     - ${_FUNCTION_NAME}
+  #     - --gen2
+  #     - --project=${PROJECT_ID}
+  #     - --region=${_REGION}
+  #     - --format=value(name)
 
   - name: gcr.io/google.com/cloudsdktool/google-cloud-cli:stable
     entrypoint: gcloud
@@ -25,7 +25,7 @@ steps:
       - --gen2
       - --project=${PROJECT_ID}
       - --region=${_REGION}
-      - --runtime=python312
+      - --runtime=python315
       - --source=.
       - --entry-point=handle_storage_event
       - --trigger-location=${_TRIGGER_LOCATION}
