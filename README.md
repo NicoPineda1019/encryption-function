@@ -3,13 +3,13 @@ Función para cifrado de archivos
 
 ## Despliegue con Google Cloud Build
 
-`cloudbuild.yml` despliega la Cloud Function `gcp-encryption-cloud-function`
-como función Gen 2 activada por Eventarc cuando se finaliza la creación de un
-objeto en Cloud Storage (`google.cloud.storage.object.v1.finalized`). Configura
-`handle_storage_event` como entry point. Primero ejecuta `gcloud functions
-describe` en el mismo proyecto y región; si la función no existe exactamente
-allí, el build falla antes de ejecutar el despliegue. El paso imprime el nombre
-completo verificado en los logs.
+`cloudbuild.yml` actualiza la Cloud Function Gen 2
+`gcp-encryption-cloud-function-v2` y configura su trigger de Eventarc para
+objetos finalizados en el bucket definido por `_BUCKET`
+(`google.cloud.storage.object.v1.finalized`). El entry point es
+`handle_storage_event`. Antes del despliegue, `gcloud functions describe`
+verifica que la función ya exista en el proyecto y región configurados; si no,
+el build se detiene.
 
 `gcloud functions deploy` puede crear o actualizar funciones. La validación
 previa es la que impide que este pipeline intente crear una función nueva. Si
@@ -51,6 +51,6 @@ Desde este directorio, con `gcloud` autenticado en el proyecto de destino y
 gcloud builds submit --config=cloudbuild.yml
 ```
 
-Actualiza `_BUCKET` y las regiones en las sustituciones del YAML para que
-coincidan con el bucket y el trigger. La cuenta de servicio del trigger
-también necesita permiso para publicar eventos de Cloud Storage.
+Actualiza `_BUCKET`, `_REGION` y `_TRIGGER_LOCATION` en el YAML para que
+coincidan con el bucket y la ubicación del trigger. La cuenta de servicio del
+trigger también necesita permiso para publicar eventos de Cloud Storage.
