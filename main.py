@@ -1,27 +1,19 @@
 import functions_framework
 
-# CloudEvent function to be triggered by an Eventarc Cloud Audit Logging trigger
-# Note: this is NOT designed for second-party (Cloud Audit Logs -> Pub/Sub) triggers!
+
 @functions_framework.cloud_event
-def app(cloudevent):
-    print("Hola mundo desde Google Cloud Functions con Python 3.11 y Eventarc!")
-    # Print out the CloudEvent's (required) `type` property
-    # See https://github.com/cloudevents/spec/blob/v1.0.1/spec.md#type
-    print(f"Event type: {cloudevent['type']}")
+def app(cloud_event):
+    """Procesa eventos de objetos finalizados en Cloud Storage."""
+    data = cloud_event.data
+    if not isinstance(data, dict):
+        raise ValueError("El evento de Cloud Storage no contiene datos válidos.")
 
-    # Print out the CloudEvent's (optional) `subject` property
-    # See https://github.com/cloudevents/spec/blob/v1.0.1/spec.md#subject
-    if 'subject' in cloudevent:
-        # CloudEvent objects don't support `get` operations.
-        # Use the `in` operator to verify `subject` is present.
-        print(f"Subject: {cloudevent['subject']}")
+    bucket = data.get("bucket")
+    object_name = data.get("name")
+    if not bucket or not object_name:
+        raise ValueError("El evento no incluye el bucket y el nombre del objeto.")
 
-    # Print out details from the `protoPayload`
-    # This field encapsulates a Cloud Audit Logging entry
-    # See https://cloud.google.com/logging/docs/audit#audit_log_entry_structure
-
-    payload = cloudevent.data.get("protoPayload")
-    if payload:
-        print(f"API method: {payload.get('methodName')}")
-        print(f"Resource name: {payload.get('resourceName')}")
-        print(f"Principal: {payload.get('authenticationInfo', dict()).get('principalEmail')}")
+    print(f"Event type: {cloud_event['type']}")
+    print(f"Bucket: {bucket}")
+    print(f"Object: {object_name}")
+    print(f"Generation: {data.get('generation')}")
