@@ -1,8 +1,13 @@
+import logging
+
 import functions_framework
 from flask import Flask, jsonify, request
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
-def process_storage_event(event_type, data):
+
+def process_storage_event(event_type, data, event_id=None):
     if not isinstance(data, dict):
         raise ValueError("El evento de Cloud Storage no contiene datos válidos.")
 
@@ -11,17 +16,47 @@ def process_storage_event(event_type, data):
     if not bucket or not object_name:
         raise ValueError("El evento no incluye el bucket y el nombre del objeto.")
 
-    print(f"Event type: {event_type}")
-    print(f"Bucket: {bucket}")
-    print(f"Object: {object_name}")
-    print(f"Generation: {data.get('generation')}")
+    logger.info(
+        "Evento de Cloud Storage recibido: event_id=%s event_type=%s "
+        "bucket=%s object=%s generation=%s",
+        event_id,
+        event_type,
+        bucket,
+        object_name,
+        data.get("generation"),
+    )
+    return bucket, object_name
 
 
 @functions_framework.cloud_event
 def handle_storage_event(cloud_event):
-    print("HOLA MUNDO con CodeBuild")
     """Handler para la Cloud Function Gen 2 activada por Eventarc."""
-    process_storage_event(cloud_event["type"], cloud_event.data)
+    logger.info(
+        "Inició el handler de Cloud Storage: event_id=%s event_type=%s "
+        "event_source=%s",
+        cloud_event.get("id"),
+        cloud_event.get("type"),
+        cloud_event.get("source"),
+    )
+    try:
+        bucket, object_name = process_storage_event(
+            cloud_event.get("type"),
+            cloud_event.data,
+            cloud_event.get("id"),
+        )
+    except ValueError:
+        logger.exception(
+            "No se pudo procesar el evento de Cloud Storage: event_id=%s",
+            cloud_event.get("id"),
+        )
+        raise
+
+    logger.info(
+        "Finalizó el handler de Cloud Storage: event_id=%s bucket=%s object=%s",
+        cloud_event.get("id"),
+        bucket,
+        object_name,
+    )
 
 
 app = Flask(__name__)
@@ -43,7 +78,11 @@ def receive_event():
     event_type = request.headers.get("ce-type") or event.get("type")
     event_data = event.get("data", event)
     try:
-        process_storage_event(event_type, event_data)
+        process_storage_event(
+            event_type,
+            event_data,
+            request.headers.get("ce-id") or event.get("id"),
+        )
     except ValueError as error:
         return jsonify(error=str(error)), 400
 
