@@ -24,6 +24,16 @@ objetos del bucket y crear objetos en él (por ejemplo, los roles
 incluida es pública; la clave privada correspondiente debe mantenerse fuera
 del repositorio y no se necesita para cifrar.
 
+## Pruebas unitarias
+
+Las pruebas mockean el cliente y los blobs de Cloud Storage, y también el
+proceso GPG; no acceden a GCP ni cifran archivos reales. Con las dependencias
+del proyecto instaladas, ejecútalas desde esta carpeta con:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
 `gcloud functions deploy` puede crear o actualizar funciones. La validación
 previa es la que impide que este pipeline intente crear una función nueva. Si
 el paso de validación termina correctamente pero el despliegue devuelve un
