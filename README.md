@@ -11,6 +11,19 @@ objetos finalizados en el bucket definido por `_BUCKET`
 verifica que la función ya exista en el proyecto y región configurados; si no,
 el build se detiene.
 
+Al recibir un objeto nuevo, el handler descarga la generación del objeto,
+cifra su contenido con la clave pública `keys/keypair.asc` mediante
+`python-gnupg` y sube el resultado al mismo bucket bajo
+`encrypted/<nombre-original>.gpg`. Los objetos bajo `encrypted/` se omiten para
+evitar que el trigger vuelva a procesar sus propias salidas. El archivo raíz
+`Aptfile` instala el ejecutable GPG que necesita `python-gnupg`.
+
+La cuenta de servicio de ejecución de la función requiere permiso para leer
+objetos del bucket y crear objetos en él (por ejemplo, los roles
+`roles/storage.objectViewer` y `roles/storage.objectCreator`). La clave
+incluida es pública; la clave privada correspondiente debe mantenerse fuera
+del repositorio y no se necesita para cifrar.
+
 `gcloud functions deploy` puede crear o actualizar funciones. La validación
 previa es la que impide que este pipeline intente crear una función nueva. Si
 el paso de validación termina correctamente pero el despliegue devuelve un
