@@ -5,7 +5,7 @@ from flask import Flask, jsonify, request
 from crypto.storage_encryption import encrypt_storage_object
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.CRITICAL)
 
 
 def process_storage_event(event_type, data, event_id=None):
