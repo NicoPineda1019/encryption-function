@@ -47,11 +47,18 @@ class StorageEncryptionTests(unittest.TestCase):
         with patch.object(Path, "is_file", return_value=True), patch.object(
             Path, "read_text", return_value="PUBLIC KEY"
         ):
-            result = storage_encryption.encrypt_storage_object(
-                "input-bucket", "incoming/report.csv", "12345"
-            )
+            with self.assertLogs(storage_encryption.logger, level="INFO") as logs:
+                result = storage_encryption.encrypt_storage_object(
+                    "input-bucket", "incoming/report.csv", "12345"
+                )
 
         self.assertEqual(result, "encrypted/incoming/report.csv.gpg")
+        self.assertTrue(
+            any("Inició el cifrado del objeto" in entry for entry in logs.output)
+        )
+        self.assertTrue(
+            any("Objeto cifrado guardado" in entry for entry in logs.output)
+        )
         self.client.bucket.assert_called_once_with("input-bucket")
         self.bucket.blob.assert_has_calls(
             [

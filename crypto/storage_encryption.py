@@ -8,6 +8,7 @@ import gnupg
 from google.cloud import storage
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PUBLIC_KEY_PATH = PROJECT_ROOT / "keys" / "keypair.asc"
