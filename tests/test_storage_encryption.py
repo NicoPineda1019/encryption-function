@@ -170,6 +170,94 @@ class StorageEncryptionTests(unittest.TestCase):
 
         self.destination_blob.upload_from_string.assert_not_called()
 
+    @patch.dict("os.environ", {"GPG_PASSPHRASE": "test-passphrase"})
+    @patch.object(storage_encryption.storage, "Client")
+    @patch.object(storage_encryption.gnupg, "GPG")
+    def test_decrypts_encrypted_object_and_uploads_plaintext(
+        self, gpg_constructor, storage_client
+    ):
+        storage_client.return_value = self.client
+        self.source_blob.download_as_bytes.return_value = b"encrypted data"
+        self.gpg.decrypt_file.return_value = SimpleNamespace(
+            ok=True,
+            data=b"plain data",
+            status="decryption ok",
+        )
+        gpg_constructor.return_value = self.gpg
+
+        with patch.object(Path, "is_file", return_value=True), patch.object(
+            Path, "read_text", return_value="PRIVATE KEY"
+        ):
+            result = storage_encryption.decrypt_storage_object(
+                "input-bucket", "encrypted/incoming/report.csv.gpg", "12345"
+            )
+
+        self.assertEqual(result, "desencrypted/incoming/report.csv")
+        self.client.bucket.assert_called_once_with("input-bucket")
+        self.bucket.blob.assert_has_calls(
+            [
+                call("encrypted/incoming/report.csv.gpg", generation=12345),
+                call("desencrypted/incoming/report.csv"),
+            ]
+        )
+        self.source_blob.download_as_bytes.assert_called_once_with()
+        self.gpg.import_keys.assert_called_once_with("PRIVATE KEY")
+        input_stream = self.gpg.decrypt_file.call_args.args[0]
+        self.assertIsInstance(input_stream, BytesIO)
+        self.assertEqual(input_stream.getvalue(), b"encrypted data")
+        self.gpg.decrypt_file.assert_called_once_with(
+            input_stream,
+            passphrase="test-passphrase",
+        )
+        self.destination_blob.upload_from_string.assert_called_once_with(
+            b"plain data",
+            content_type="application/octet-stream",
+        )
+
+    @patch.dict("os.environ", {}, clear=True)
+    @patch.object(storage_encryption.storage, "Client")
+    def test_decryption_requires_passphrase_before_storage_access(self, storage_client):
+        with self.assertRaisesRegex(RuntimeError, "GPG_PASSPHRASE"):
+            storage_encryption.decrypt_storage_object(
+                "input-bucket", "encrypted/report.csv.gpg"
+            )
+
+        storage_client.assert_not_called()
+
+    @patch.dict("os.environ", {"GPG_PASSPHRASE": "test-passphrase"})
+    @patch.object(storage_encryption.storage, "Client")
+    @patch.object(storage_encryption.gnupg, "GPG")
+    def test_failed_decryption_does_not_upload(
+        self, gpg_constructor, storage_client
+    ):
+        storage_client.return_value = self.client
+        self.gpg.decrypt_file.return_value = SimpleNamespace(
+            ok=False,
+            data=b"partial plaintext",
+            status="decryption failed",
+        )
+        gpg_constructor.return_value = self.gpg
+
+        with patch.object(Path, "is_file", return_value=True), patch.object(
+            Path, "read_text", return_value="PRIVATE KEY"
+        ):
+            with self.assertRaisesRegex(RuntimeError, "decryption failed"):
+                storage_encryption.decrypt_storage_object(
+                    "input-bucket", "encrypted/report.csv.gpg"
+                )
+
+        self.destination_blob.upload_from_string.assert_not_called()
+
+    @patch.dict("os.environ", {"GPG_PASSPHRASE": "test-passphrase"})
+    @patch.object(storage_encryption.storage, "Client")
+    def test_decryption_skips_non_encrypted_objects(self, storage_client):
+        result = storage_encryption.decrypt_storage_object(
+            "input-bucket", "incoming/report.csv"
+        )
+
+        self.assertIsNone(result)
+        storage_client.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

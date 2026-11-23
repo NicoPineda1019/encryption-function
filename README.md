@@ -15,14 +15,25 @@ Al recibir un objeto nuevo, el handler descarga la generación del objeto,
 cifra su contenido con la clave pública `keys/keypair.asc` mediante
 `python-gnupg` y sube el resultado al mismo bucket bajo
 `encrypted/<nombre-original>.gpg`. Los objetos bajo `encrypted/` se omiten para
-evitar que el trigger vuelva a procesar sus propias salidas. El archivo raíz
-`Aptfile` instala el ejecutable GPG que necesita `python-gnupg`.
+evitar que el trigger vuelva a procesar sus propias salidas. Si llega un objeto
+bajo `encrypted/`, importa la clave privada incluida en `keys/keypair.asc`,
+lo descifra y guarda el resultado en
+`desencrypted/<nombre-original>`. Los objetos bajo `desencrypted/` se omiten
+para prevenir ciclos. El archivo raíz `Aptfile` instala el ejecutable GPG que
+necesita `python-gnupg`.
+
+La passphrase se lee de la variable de entorno `GPG_PASSPHRASE`; debe
+configurarse en el entorno de ejecución de la función. No está escrita en el
+código ni en el repositorio. La clave privada sí está presente en
+`keys/keypair.asc`; restringe el acceso al repositorio y al bucket según la
+política de tu organización.
 
 La cuenta de servicio de ejecución de la función requiere permiso para leer
 objetos del bucket y crear objetos en él (por ejemplo, los roles
-`roles/storage.objectViewer` y `roles/storage.objectCreator`). La clave
-incluida es pública; la clave privada correspondiente debe mantenerse fuera
-del repositorio y no se necesita para cifrar.
+`roles/storage.objectViewer` y `roles/storage.objectCreator`). El archivo
+`keys/keypair.asc` contiene material de clave privada; restringe su acceso y no
+lo publiques en repositorios compartidos. Para cifrar se usa su clave pública;
+para descifrar se requiere la parte privada.
 
 ## Pruebas unitarias
 

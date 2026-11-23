@@ -2,7 +2,12 @@ import logging
 import functions_framework
 from flask import Flask, jsonify, request
 
-from crypto.storage_encryption import encrypt_storage_object
+from crypto.storage_encryption import (
+    DECRYPTED_PREFIX,
+    ENCRYPTED_PREFIX,
+    decrypt_storage_object,
+    encrypt_storage_object,
+)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -52,12 +57,29 @@ def handle_storage_event(cloud_event):
         )
         raise
 
+    if object_name.startswith(DECRYPTED_PREFIX):
+        logger.info(
+            "Se omite el archivo ya descifrado para evitar reprocesamiento: "
+            "bucket=%s object=%s",
+            bucket,
+            object_name,
+        )
+        return
+
+    if object_name.startswith(ENCRYPTED_PREFIX):
+        operation = decrypt_storage_object
+        operation_name = "descifrado"
+    else:
+        operation = encrypt_storage_object
+        operation_name = "cifrado"
+
     try:
-        destination_name = encrypt_storage_object(bucket, object_name, generation)
+        destination_name = operation(bucket, object_name, generation)
     except Exception:
         logger.exception(
-            "Falló el cifrado o la escritura en Cloud Storage: event_id=%s "
+            "Falló el %s o la escritura en Cloud Storage: event_id=%s "
             "bucket=%s object=%s",
+            operation_name,
             cloud_event.get("id"),
             bucket,
             object_name,
