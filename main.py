@@ -32,7 +32,7 @@ def process_storage_event(event_type, data, event_id=None):
 def handle_storage_event(cloud_event):
     """Handler para la Cloud Function Gen 2 activada por Eventarc."""
     logger.info(
-        "Inició el handler de Cloud Storage V2: event_id=%s event_type=%s "
+        "Inició el handler de Cloud Storage VV2: event_id=%s event_type=%s "
         "event_source=%s",
         cloud_event.get("id"),
         cloud_event.get("type"),
