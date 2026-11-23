@@ -39,8 +39,13 @@ def handle_storage_event(cloud_event):
         cloud_event.get("type"),
         cloud_event.get("source"),
     )
-
-    logger.info("Verificando versión de GPG..."+str(subprocess.run(["gpg", "--version"], check=True)))
+    result = subprocess.run(
+    ["gpg", "--version"],
+    check=True,
+    capture_output=True,
+    text=True,
+    )
+    logger.info("Versión de GPG: %s", result.stdout.splitlines()[0])
     try:
         bucket, object_name = process_storage_event(
             cloud_event.get("type"),
