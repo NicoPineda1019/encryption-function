@@ -1,5 +1,6 @@
 import logging
-
+import subprocess
+import gnupg
 import functions_framework
 from flask import Flask, jsonify, request
 
@@ -38,6 +39,8 @@ def handle_storage_event(cloud_event):
         cloud_event.get("type"),
         cloud_event.get("source"),
     )
+
+    logger.info("Verificando versión de GPG..."+str(subprocess.run(["gpg", "--version"], check=True)))
     try:
         bucket, object_name = process_storage_event(
             cloud_event.get("type"),
