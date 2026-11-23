@@ -1,6 +1,7 @@
 import logging
 import subprocess
 import functions_framework
+import gnupg
 from flask import Flask, jsonify, request
 
 logger = logging.getLogger(__name__)
@@ -38,32 +39,31 @@ def handle_storage_event(cloud_event):
         cloud_event.get("type"),
         cloud_event.get("source"),
     )
-    # logger.info("Verificando versión de GPG: event_id=%s", cloud_event.get("id"))
-    # try:
-    #     result = subprocess.run(
-    #         ["gpg", "--version"],
-    #         check=True,
-    #         capture_output=True,
-    #         text=True,
-    #         timeout=10,
-    #     )
-    # except subprocess.TimeoutExpired:
-    #     logger.exception(
-    #         "La verificación de GPG superó 10 segundos: event_id=%s",
-    #         cloud_event.get("id"),
-    #     )
-    #     raise
-    # except (FileNotFoundError, subprocess.CalledProcessError):
-    #     logger.exception(
-    #         "Falló la verificación de GPG: event_id=%s",
-    #         cloud_event.get("id"),
-    #     )
-    #     raise
-
-    # version = result.stdout.splitlines()
-    # if not version:
-    #     raise RuntimeError("GPG no devolvió información de versión.")
-    # logger.info("Versión de GPG: %s", version[0])
+    logger.info("Verificando versión de GPG: event_id=%s", cloud_event.get("id"))
+    try:
+        result = subprocess.run(
+            ["gpg", "--version"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except subprocess.TimeoutExpired:
+        logger.exception(
+            "La verificación de GPG superó 10 segundos: event_id=%s",
+            cloud_event.get("id"),
+        )
+        raise
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        logger.exception(
+            "Falló la verificación de GPG: event_id=%s",
+            cloud_event.get("id"),
+        )
+        raise
+    version = result.stdout.splitlines()
+    if not version:
+        raise RuntimeError("GPG no devolvió información de versión.")
+    logger.info("Versión de GPG: %s", version[0])
     try:
         bucket, object_name = process_storage_event(
             cloud_event.get("type"),
