@@ -11,16 +11,12 @@ objetos finalizados en el bucket definido por `_BUCKET`
 verifica que la función ya exista en el proyecto y región configurados; si no,
 el build se detiene.
 
-Al recibir un objeto nuevo, el handler descarga la generación del objeto,
-cifra su contenido con la clave pública `keys/keypair.asc` mediante
-`python-gnupg` y sube el resultado al mismo bucket bajo
-`encrypted/<nombre-original>.gpg`. Los objetos bajo `encrypted/` se omiten para
-evitar que el trigger vuelva a procesar sus propias salidas. Si llega un objeto
-bajo `encrypted/`, importa la clave privada incluida en `keys/keypair.asc`,
-lo descifra y guarda el resultado en
-`desencrypted/<nombre-original>`. Los objetos bajo `desencrypted/` se omiten
-para prevenir ciclos. El archivo raíz `Aptfile` instala el ejecutable GPG que
-necesita `python-gnupg`.
+Eventarc entrega al handler eventos del bucket indicado. El handler filtra por
+`OBJECT_PREFIX`, configurado como `encrypted/` en `cloudbuild.yml`, y descifra
+solo los objetos cuyo nombre comience con ese prefijo. El resultado se guarda
+en el mismo bucket bajo `desencrypted/<nombre-original>`. Para cambiar el
+prefijo, actualiza `_OBJECT_PREFIX` en el YAML. El archivo raíz `Aptfile`
+instala el ejecutable GPG que necesita `python-gnupg`.
 
 La passphrase se lee de la variable de entorno `GPG_PASSPHRASE`; debe
 configurarse en el entorno de ejecución de la función. No está escrita en el
@@ -34,6 +30,15 @@ objetos del bucket y crear objetos en él (por ejemplo, los roles
 `keys/keypair.asc` contiene material de clave privada; restringe su acceso y no
 lo publiques en repositorios compartidos. Para cifrar se usa su clave pública;
 para descifrar se requiere la parte privada.
+
+Al cifrar `ruta/archivo.ext`, la función guarda el objeto cifrado en
+`encrypted/ruta/archivo.ext.gpg` y un archivo
+`encrypted/ruta/archivo_metadata.json`. El JSON registra, para el original y
+el cifrado, la ruta de Cloud Storage, el tamaño en bytes y el checksum SHA-256.
+Al descifrar, la función compara el checksum SHA-256 del contenido descifrado
+con el registrado para el original. Si no coincide, registra el resultado
+inválido y no guarda el archivo descifrado. Los eventos del archivo de
+metadatos se omiten.
 
 ## Pruebas unitarias
 

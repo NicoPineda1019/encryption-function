@@ -1,3 +1,5 @@
+import hashlib
+import json
 import unittest
 from io import BytesIO
 from pathlib import Path
@@ -13,10 +15,12 @@ class StorageEncryptionTests(unittest.TestCase):
         self.bucket = Mock()
         self.source_blob = Mock()
         self.destination_blob = Mock()
+        self.metadata_blob = Mock()
         self.client.bucket.return_value = self.bucket
         self.bucket.blob.side_effect = [
             self.source_blob,
             self.destination_blob,
+            self.metadata_blob,
         ]
         self.source_blob.download_as_bytes.return_value = b"plain data"
         self.gpg = Mock()
@@ -64,6 +68,7 @@ class StorageEncryptionTests(unittest.TestCase):
             [
                 call("incoming/report.csv", generation=12345),
                 call("encrypted/incoming/report.csv.gpg"),
+                call("encrypted/incoming/report_metadata.json"),
             ]
         )
         self.source_blob.download_as_bytes.assert_called_once_with()
@@ -82,6 +87,31 @@ class StorageEncryptionTests(unittest.TestCase):
         self.destination_blob.upload_from_string.assert_called_once_with(
             b"encrypted data",
             content_type="application/octet-stream",
+        )
+        uploaded_metadata = json.loads(
+            self.metadata_blob.upload_from_string.call_args.args[0]
+        )
+        self.assertEqual(
+            uploaded_metadata,
+            {
+                "original": {
+                    "path": "gs://input-bucket/incoming/report.csv",
+                    "size_bytes": len(b"plain data"),
+                    "checksum_sha256": hashlib.sha256(b"plain data").hexdigest(),
+                },
+                "encrypted": {
+                    "path": "gs://input-bucket/encrypted/incoming/report.csv.gpg",
+                    "size_bytes": len(b"encrypted data"),
+                    "checksum_sha256": hashlib.sha256(
+                        b"encrypted data"
+                    ).hexdigest(),
+                },
+            },
+        )
+        self.metadata_blob.upload_from_string.assert_called_once()
+        self.assertEqual(
+            self.metadata_blob.upload_from_string.call_args.kwargs["content_type"],
+            "application/json",
         )
 
     @patch.object(storage_encryption.storage, "Client")
@@ -177,17 +207,29 @@ class StorageEncryptionTests(unittest.TestCase):
         self, gpg_constructor, storage_client
     ):
         storage_client.return_value = self.client
+        self.bucket.blob.side_effect = [
+            self.source_blob,
+            self.metadata_blob,
+            self.destination_blob,
+        ]
         self.source_blob.download_as_bytes.return_value = b"encrypted data"
         self.gpg.decrypt_file.return_value = SimpleNamespace(
             ok=True,
             data=b"plain data",
             status="decryption ok",
         )
+        self.metadata_blob.download_as_bytes.return_value = json.dumps(
+            {
+                "original": {
+                    "checksum_sha256": hashlib.sha256(b"plain data").hexdigest()
+                }
+            }
+        ).encode()
         gpg_constructor.return_value = self.gpg
 
         with patch.object(Path, "is_file", return_value=True), patch.object(
             Path, "read_text", return_value="PRIVATE KEY"
-        ):
+        ), self.assertLogs(storage_encryption.logger, level="INFO") as logs:
             result = storage_encryption.decrypt_storage_object(
                 "input-bucket", "encrypted/incoming/report.csv.gpg", "12345"
             )
@@ -197,10 +239,12 @@ class StorageEncryptionTests(unittest.TestCase):
         self.bucket.blob.assert_has_calls(
             [
                 call("encrypted/incoming/report.csv.gpg", generation=12345),
+                call("encrypted/incoming/report_metadata.json"),
                 call("desencrypted/incoming/report.csv"),
             ]
         )
         self.source_blob.download_as_bytes.assert_called_once_with()
+        self.metadata_blob.download_as_bytes.assert_called_once_with()
         self.gpg.import_keys.assert_called_once_with("PRIVATE KEY")
         input_stream = self.gpg.decrypt_file.call_args.args[0]
         self.assertIsInstance(input_stream, BytesIO)
@@ -213,8 +257,47 @@ class StorageEncryptionTests(unittest.TestCase):
             b"plain data",
             content_type="application/octet-stream",
         )
+        self.assertTrue(
+            any("resultado=válido" in entry for entry in logs.output)
+        )
 
-    @patch.dict("os.environ", {}, clear=True)
+    @patch.dict("os.environ", {"GPG_PASSPHRASE": "test-passphrase"})
+    @patch.object(storage_encryption.storage, "Client")
+    @patch.object(storage_encryption.gnupg, "GPG")
+    def test_checksum_mismatch_does_not_upload_plaintext(
+        self, gpg_constructor, storage_client
+    ):
+        storage_client.return_value = self.client
+        self.bucket.blob.side_effect = [
+            self.source_blob,
+            self.metadata_blob,
+            self.destination_blob,
+        ]
+        self.source_blob.download_as_bytes.return_value = b"encrypted data"
+        self.metadata_blob.download_as_bytes.return_value = json.dumps(
+            {"original": {"checksum_sha256": "incorrect-checksum"}}
+        ).encode()
+        self.gpg.decrypt_file.return_value = SimpleNamespace(
+            ok=True,
+            data=b"plain data",
+            status="decryption ok",
+        )
+        gpg_constructor.return_value = self.gpg
+
+        with patch.object(Path, "is_file", return_value=True), patch.object(
+            Path, "read_text", return_value="PRIVATE KEY"
+        ), self.assertLogs(storage_encryption.logger, level="INFO") as logs:
+            with self.assertRaisesRegex(RuntimeError, "checksum.*no coincide"):
+                storage_encryption.decrypt_storage_object(
+                    "input-bucket", "encrypted/report.csv.gpg"
+                )
+
+        self.destination_blob.upload_from_string.assert_not_called()
+        self.assertTrue(
+            any("resultado=inválido" in entry for entry in logs.output)
+        )
+
+    @patch.dict("os.environ", {"GPG_PASSPHRASE": ""}, clear=True)
     @patch.object(storage_encryption.storage, "Client")
     def test_decryption_requires_passphrase_before_storage_access(self, storage_client):
         with self.assertRaisesRegex(RuntimeError, "GPG_PASSPHRASE"):
@@ -231,6 +314,14 @@ class StorageEncryptionTests(unittest.TestCase):
         self, gpg_constructor, storage_client
     ):
         storage_client.return_value = self.client
+        self.bucket.blob.side_effect = [
+            self.source_blob,
+            self.metadata_blob,
+            self.destination_blob,
+        ]
+        self.metadata_blob.download_as_bytes.return_value = json.dumps(
+            {"original": {"checksum_sha256": hashlib.sha256(b"plain data").hexdigest()}}
+        ).encode()
         self.gpg.decrypt_file.return_value = SimpleNamespace(
             ok=False,
             data=b"partial plaintext",
@@ -253,6 +344,16 @@ class StorageEncryptionTests(unittest.TestCase):
     def test_decryption_skips_non_encrypted_objects(self, storage_client):
         result = storage_encryption.decrypt_storage_object(
             "input-bucket", "incoming/report.csv"
+        )
+
+        self.assertIsNone(result)
+        storage_client.assert_not_called()
+
+    @patch.dict("os.environ", {"GPG_PASSPHRASE": "test-passphrase"})
+    @patch.object(storage_encryption.storage, "Client")
+    def test_decryption_skips_metadata_object(self, storage_client):
+        result = storage_encryption.decrypt_storage_object(
+            "input-bucket", "encrypted/incoming/report_metadata.json"
         )
 
         self.assertIsNone(result)
